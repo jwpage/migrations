@@ -6,6 +6,7 @@ namespace LaravelDoctrine\Migrations\Schema;
 
 use Closure;
 use Doctrine\DBAL\Schema\Column;
+use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
 use Doctrine\DBAL\Schema\Table as Blueprint;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Types\Types;
@@ -52,9 +53,16 @@ class Table
      */
     public function primary($columns, $indexName = false): ?Blueprint
     {
-        $columns = is_array($columns) ? $columns : [$columns];
+        $columns = array_filter(is_array($columns) ? $columns : [$columns], fn ($column) => strlen($column) > 0);
 
-        return $this->table->setPrimaryKey($columns, $indexName);
+        $primaryKeyConstraintEditor = PrimaryKeyConstraint::editor()
+            ->setUnquotedColumnNames(...$columns);
+
+        if ($indexName !== false && strlen($indexName) > 0) {
+            $primaryKeyConstraintEditor->setUnquotedName($indexName);
+        }
+
+        return $this->table->addPrimaryKeyConstraint($primaryKeyConstraintEditor->create());
     }
 
     /**
@@ -68,7 +76,11 @@ class Table
      */
     public function unique($columns, $name = null, $options = []): ?Blueprint
     {
-        $columns = is_array($columns) ? $columns : [$columns];
+        $columns = array_filter(is_array($columns) ? $columns : [$columns], fn ($column) => strlen($column) > 0);
+
+        if (count($columns) === 0) {
+            throw new \InvalidArgumentException('You must specify at least one column for a unique index.');
+        }
 
         return $this->table->addUniqueIndex($columns, $name, $options);
     }
@@ -85,7 +97,11 @@ class Table
      */
     public function index($columns, $name = null, $flags = [], $options = []): ?Blueprint
     {
-        $columns = is_array($columns) ? $columns : [$columns];
+        $columns = array_filter(is_array($columns) ? $columns : [$columns], fn ($column) => strlen($column) > 0);
+
+        if (count($columns) === 0) {
+            throw new \InvalidArgumentException('You must specify at least one column for an index.');
+        }
 
         return $this->table->addIndex($columns, $name, $flags, $options);
     }
@@ -109,8 +125,16 @@ class Table
         $constraintName = null
     ): ?Blueprint
     {
-        $localColumnNames   = is_array($localColumnNames) ? $localColumnNames : [$localColumnNames];
-        $foreignColumnNames = is_array($foreignColumnNames) ? $foreignColumnNames : [$foreignColumnNames];
+        $localColumnNames   = array_filter(is_array($localColumnNames) ? $localColumnNames : [$localColumnNames], fn ($column) => strlen($column) > 0);
+        $foreignColumnNames = array_filter(is_array($foreignColumnNames) ? $foreignColumnNames : [$foreignColumnNames], fn ($column) => strlen($column) > 0);
+
+        if (count($localColumnNames) === 0) {
+            throw new \InvalidArgumentException('You must specify at least one local column for a foreign key.');
+        }
+
+        if (count($foreignColumnNames) === 0) {
+            throw new \InvalidArgumentException('You must specify at least one foreign column for a foreign key.');
+        }
 
         return $this->table->addForeignKeyConstraint($table, $localColumnNames, $foreignColumnNames, $options,
             $constraintName);

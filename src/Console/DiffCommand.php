@@ -7,6 +7,7 @@ namespace LaravelDoctrine\Migrations\Console;
 use Doctrine\Migrations\Generator\Exception\NoChangesDetected;
 use LaravelDoctrine\Migrations\Configuration\ConfigurationFactory;
 use LaravelDoctrine\Migrations\Configuration\DependencyFactoryProvider;
+use Symfony\Component\Console\Input\InputOption;
 
 class DiffCommand extends BaseCommand
 {
@@ -34,6 +35,9 @@ class DiffCommand extends BaseCommand
         parent::__construct();
 
         $this->getDefinition()->getOption('check-database-platform')->setDefault(false);
+        $this->getDefinition()->addOption(new InputOption(
+            'nowdoc', null, InputOption::VALUE_NEGATABLE, 'Output the generated SQL as a nowdoc string (enabled by default for formatted queries).'
+        ));
     }
 
     /**

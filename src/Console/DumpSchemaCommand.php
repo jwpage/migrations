@@ -3,6 +3,7 @@
 namespace LaravelDoctrine\Migrations\Console;
 
 use LaravelDoctrine\Migrations\Configuration\DependencyFactoryProvider;
+use Symfony\Component\Console\Input\InputOption;
 
 class DumpSchemaCommand extends BaseCommand
 {
@@ -12,6 +13,15 @@ class DumpSchemaCommand extends BaseCommand
             {--filter-tables=* : Filter the tables to dump via Regex.}
             {--line-length=120 : Max line length of unformatted lines.}
     ';
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $this->getDefinition()->addOption(new InputOption(
+            'nowdoc', null, InputOption::VALUE_NEGATABLE, 'Output the generated SQL as a nowdoc string (enabled by default for formatted queries)'
+        ));
+    }
 
     /**
      * Execute the console command.

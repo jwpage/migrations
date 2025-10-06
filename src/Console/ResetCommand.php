@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace LaravelDoctrine\Migrations\Console;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Platforms\MySQLPlatform;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
+use Doctrine\DBAL\Platforms\SQLServerPlatform;
 use Exception;
 use Illuminate\Console\ConfirmableTrait;
 use LaravelDoctrine\Migrations\Configuration\DependencyFactoryProvider;
@@ -52,18 +56,14 @@ class ResetCommand extends BaseCommand
 
     private function safelyDropTables(): void
     {
-        $this->throwExceptionIfPlatformIsNotSupported();
+        $schemaManager = $this->connection->createSchemaManager();
 
-        if (method_exists($this->connection, 'createSchemaManager')) {
-            $schemaManager = $this->connection->createSchemaManager();
-        } else {
-            $schemaManager = $this->connection->getSchemaManager();
-        }
+        $platform = $this->connection->getDatabasePlatform();
 
-        if ($this->connection->getDatabasePlatform()->supportsSequences()) {
+        if ($platform->supportsSequences()) {
             $sequences = $schemaManager->listSequences();
             foreach ($sequences as $s) {
-                $schemaManager->dropSequence($s->getQuotedName($this->connection->getDatabasePlatform()));
+                $schemaManager->dropSequence($s->getObjectName()->toSQL($platform));
             }
         }
 
@@ -71,7 +71,7 @@ class ResetCommand extends BaseCommand
         foreach ($tables as $table) {
             $foreigns = $schemaManager->listTableForeignKeys($table);
             foreach ($foreigns as $f) {
-                $schemaManager->dropForeignKey($f, $table);
+                $schemaManager->dropForeignKey($f->getObjectName()->toSQL($platform), $table);
             }
         }
 
@@ -81,39 +81,44 @@ class ResetCommand extends BaseCommand
     }
 
     /**
-     * @throws Exception
-     */
-    private function throwExceptionIfPlatformIsNotSupported(): void
-    {
-        $platformName = $this->connection->getDatabasePlatform()->getName();
-
-        if (!array_key_exists($platformName, $this->getCardinalityCheckInstructions())) {
-            throw new Exception(sprintf('The platform %s is not supported', $platformName));
-        }
-    }
-
-    /**
      * @param string $table
      * @throws \Doctrine\DBAL\Exception
      */
     private function safelyDropTable(string $table): void
     {
-        $platformName = $this->connection->getDatabasePlatform()->getName();
+        $platformName = $this->getDatabasePlatformName();
         $instructions = $this->getCardinalityCheckInstructions()[$platformName];
 
         $queryDisablingCardinalityChecks = $instructions['needsTableIsolation'] ?
                                                 sprintf($instructions['disable'], $table) :
                                                 $instructions['disable'];
-        $this->connection->query($queryDisablingCardinalityChecks);
+        $this->connection->executeStatement($queryDisablingCardinalityChecks);
 
-        $schema = $this->connection->getSchemaManager();
+        $schema = $this->connection->createSchemaManager();
         $schema->dropTable($table);
 
         // When table is already dropped we cannot enable any cardinality checks on it
         // See https://github.com/laravel-doctrine/migrations/issues/50
         if (!$instructions['needsTableIsolation']) {
-            $this->connection->query($instructions['enable']);
+            $this->connection->executeStatement($instructions['enable']);
         }
+    }
+
+    private function getDatabasePlatformName(): string
+    {
+        $platform = $this->connection->getDatabasePlatform();
+
+        if ($platform instanceof SQLServerPlatform) {
+            return 'mssql';
+        } elseif ($platform instanceof MysqlPlatform) {
+            return 'mysql';
+        } elseif ($platform instanceof PostgreSQLPlatform) {
+            return 'postgresql';
+        } elseif ($platform instanceof SQLitePlatform) {
+            return 'sqlite';
+        }
+
+        throw new Exception(sprintf('The platform %s is not supported', $platform::class));
     }
 
     /**

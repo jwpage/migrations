@@ -55,9 +55,9 @@ class SchemaBuilderTest extends TestCase
     {
         $this->schema->shouldReceive('dropTable')
                      ->with('table_name')->once()
-                     ->andReturn('dropped');
+                     ->andReturn($this->schema);
 
-        $this->assertEquals('dropped', $this->builder->drop('table_name'));
+        $this->assertEquals($this->schema, $this->builder->drop('table_name'));
     }
 
     public function test_dropIfExists()
@@ -68,18 +68,17 @@ class SchemaBuilderTest extends TestCase
 
         $this->schema->shouldReceive('dropTable')
                      ->with('table_name')->once()
-                     ->andReturn('dropped');
-
-        $this->assertEquals('dropped', $this->builder->dropIfExists('table_name'));
+                     ->andReturn($this->schema);
+        $this->assertEquals($this->schema, $this->builder->dropIfExists('table_name'));
     }
 
     public function test_rename()
     {
         $this->schema->shouldReceive('renameTable')
                      ->with('table_name', 'tablename')->once()
-                     ->andReturn('renamed');
+                     ->andReturn($this->schema);
 
-        $this->assertEquals('renamed', $this->builder->rename('table_name', 'tablename'));
+        $this->assertEquals($this->schema, $this->builder->rename('table_name', 'tablename'));
     }
 
     public function test_hasTable()
